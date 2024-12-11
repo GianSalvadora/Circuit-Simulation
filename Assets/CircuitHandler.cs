@@ -15,6 +15,8 @@ public class CircuitHandler : MonoBehaviour
     private Vector2 componentStartPosition;
     
     public List<Component> allComponents;
+
+    private Component.ComponentType _componentType = Component.ComponentType.Wire;
     private void Start()
     {
         gridHandler = FindObjectOfType<GridHandler>().GetComponent<GridHandler>();
@@ -22,9 +24,59 @@ public class CircuitHandler : MonoBehaviour
 
     private void Update()
     {
+        CheckType();
         if (Input.GetKeyDown(KeyCode.S))
         {
-            LoopFinder();    
+            List<List<Component>> seriesLoop = LoopFinder();
+            if (seriesLoop.Count > 1)
+            {
+                Debug.Log("Not a series Connection MAYBE IN THE FUTURE");
+                return;
+            }
+            else
+            {
+                // Is a series circuit
+                float totalVoltage = 0;
+                float totalResistance = 0;
+                List<Component> resistors = new List<Component>();
+
+                // Calculate total resistance and voltage
+                foreach (Component component in seriesLoop[0])
+                {
+                    if (component.CType == Component.ComponentType.Resistor)
+                    {
+                        totalResistance += component.resistance;
+                        resistors.Add(component);
+                    }
+                    else if (component.CType == Component.ComponentType.VoltageSource)
+                    {
+                        if (component.isReversed)
+                        {
+                            totalVoltage -= component.voltage;
+                            continue;
+                        }
+                        totalVoltage += component.voltage;
+                    }
+                }
+
+                totalVoltage = Mathf.Abs(totalVoltage);
+                Debug.Log("RT: " + totalResistance);
+                Debug.Log("VT: " + totalVoltage);
+
+                // Calculate the total current in the series circuit
+                float totalCurrent = totalVoltage / totalResistance;
+                Debug.Log("IT: " + totalCurrent);
+
+                // Name resistors starting from 1 and calculate/debug their voltage drops
+                for (int i = 0; i < resistors.Count; i++)
+                {
+                    resistors[i].current = totalCurrent;
+                    float resistorVoltageDrop = totalCurrent * resistors[i].resistance; // Ohm's law V = IR
+                    resistors[i].voltage = totalVoltage;
+                    Debug.Log($"Resistor R{i + 1} Vx: {resistorVoltageDrop}");
+                }
+            }
+
         }
         
         Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -34,7 +86,17 @@ public class CircuitHandler : MonoBehaviour
             Vector2Int gridCoordinate = gridHandler.GetGridCoordinate(mousePosition);
             Vector2 gridPosition = gridHandler.GetWorldPosition(gridCoordinate);
             componentStartPosition = gridPosition;
-            currentComponent = Instantiate(ReferenceHandler.singleton.wire, gridPosition, quaternion.identity);
+            if (_componentType == Component.ComponentType.Wire)
+            {
+                currentComponent = Instantiate(ReferenceHandler.singleton.wire, gridPosition, quaternion.identity);
+            }else if (_componentType == Component.ComponentType.Resistor)
+            {
+                currentComponent = Instantiate(ReferenceHandler.singleton.resistor, gridPosition, quaternion.identity);
+            }
+            else if(_componentType == Component.ComponentType.VoltageSource)
+            {
+                currentComponent = Instantiate(ReferenceHandler.singleton.battery, gridPosition, quaternion.identity);
+            }
             currentComponent.name = allComponents.Count().ToString();
             allComponents.Add(currentComponent.GetComponent<Component>());
             
@@ -67,7 +129,7 @@ public class CircuitHandler : MonoBehaviour
     
     
     
-    public void LoopFinder()
+    public List<List<Component>> LoopFinder()
 {
     // Get all valid loops first   
     List<List<Component>> allLoops = new List<List<Component>>();
@@ -84,10 +146,12 @@ public class CircuitHandler : MonoBehaviour
 
     // Print all loops and mesh loops
     PrintLoops(allLoops, meshLoops);
+
+    return meshLoops;
 }
-//ARE YOU READING THIS XANDER FK YUOU
-private List<List<Component>> FilterMeshLoops(List<List<Component>> allLoops)
-{
+    //ARE YOU READING THIS XANDER FK YUOU
+    private List<List<Component>> FilterMeshLoops(List<List<Component>> allLoops)
+    {
     var meshLoops = new List<List<Component>>();
     
     // Sort loops by size (prefer smaller loops for mesh analysis)
@@ -104,7 +168,7 @@ private List<List<Component>> FilterMeshLoops(List<List<Component>> allLoops)
     return meshLoops;
 }
 
-private bool IsSuitableForMeshAnalysis(List<Component> candidateLoop, List<List<Component>> existingMeshes)
+    private bool IsSuitableForMeshAnalysis(List<Component> candidateLoop, List<List<Component>> existingMeshes)
 {
     // First loop is always suitable
     if (existingMeshes.Count == 0)
@@ -140,7 +204,7 @@ private bool IsSuitableForMeshAnalysis(List<Component> candidateLoop, List<List<
     return true;
 }
 
-private bool AreComponentsAdjacent(Component comp1, Component comp2, List<Component> loop)
+    private bool AreComponentsAdjacent(Component comp1, Component comp2, List<Component> loop)
 {
     // Find positions of components in the loop
     int index1 = loop.IndexOf(comp1);
@@ -151,8 +215,6 @@ private bool AreComponentsAdjacent(Component comp1, Component comp2, List<Compon
     return Math.Abs(index1 - index2) == 1 || 
            Math.Abs(index1 - index2) == loopCount - 1;
 }
-    
-    
 
     public List<List<Component>> GetLoops(Component current, Component previous, List<Component> visited)
     {
@@ -210,6 +272,22 @@ private bool AreComponentsAdjacent(Component comp1, Component comp2, List<Compon
                 meshStatement += $"[{component.name}]";
             }
             Debug.Log(meshStatement);
+        }
+    }
+
+    public void CheckType()
+    {
+        if (Input.GetKey(KeyCode.Alpha1))
+        {
+            _componentType = Component.ComponentType.Wire;
+            Debug.Log("pressed 1");
+        }else if (Input.GetKey(KeyCode.Alpha2))
+        {
+            _componentType = Component.ComponentType.Resistor;
+        }
+        else if(Input.GetKey(KeyCode.Alpha3))
+        {
+            _componentType = Component.ComponentType.VoltageSource;
         }
     }
 }
