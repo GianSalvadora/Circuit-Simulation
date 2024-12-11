@@ -13,7 +13,6 @@ public class Component : MonoBehaviour
 
     public bool isReversed = false;
     public ComponentType CType = ComponentType.Wire;
-    public Direction ComponentDirection = Direction.Forward;
 
     public enum ComponentType
     {
@@ -21,13 +20,6 @@ public class Component : MonoBehaviour
         VoltageSource,
         Resistor
     }
-
-    public enum Direction
-    {
-        Forward, // Positive direction
-        Reverse  // Negative direction
-    }
-
     public void AddNext(Component component)
     {
         nextComponents.Add(component);
